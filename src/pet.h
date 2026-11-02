@@ -13,6 +13,7 @@ void petBegin();
 void petTick(uint32_t now);  // apply decay for real time passed (RTC seconds)
 void petSave();
 Stats petStats();
+float petMood();  // overall feeling 0-100: weakest need plus recent attention
 
 void petUpdate(float dt, const Motion &m, float micDb, float micFloorDb);
 void petDraw(Arduino_GFX *g, float t);
@@ -26,4 +27,5 @@ void petCardLearned();
 void petWake();
 void petSetFocus(bool on);  // curled up during a pomodoro
 bool petAsleep();
+void petDemo(int mode);  // 0 real needs, 1 sulking, 2 neglected (not saved)
 int petQuarter();  // which screen edge is the floor: 0 bottom, 1 right, 2 top, 3 left

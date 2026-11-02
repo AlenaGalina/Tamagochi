@@ -78,9 +78,11 @@ static void present() {
   const uint16_t *fb = rotate(gfx->getFramebuffer(), petQuarter());
   if (shotRequested) {  // screenshot: tools/screenshot.py
     shotRequested = false;
+    Serial.setTxTimeoutMs(100);  // someone is reading: deliver the whole frame
     Serial.println("SHOT");
     for (int i = 0; i < VW * VH; i++) Serial.printf("%04x", fb[i]);
     Serial.println();
+    Serial.setTxTimeoutMs(0);
   }
   upscale(fb, frames[drawing]);
   xTaskNotify(flushTask, drawing, eSetValueWithOverwrite);
@@ -89,6 +91,7 @@ static void present() {
 
 enum Screen { FACE, CARD };
 static Screen screen = FACE;
+static uint32_t statsOpenedAt = 0;
 static float statsShown = 0;  // seconds left showing the needs ring
 static uint32_t pomodoroEnd = 0;  // millis, 0 when not running
 static int card = 0;
@@ -98,6 +101,7 @@ static uint32_t cardIdleSince = 0;
 static struct {
   bool down;
   bool longFired;
+  bool consumed;  // this touch only closed the breakdown; ignore the rest of it
   int16_t x0, y0, x, y;
   uint32_t t0;
   float travel;
@@ -113,29 +117,60 @@ static void centerText(const char *s, int y, int size, uint16_t col) {
   gfx->print(s);
 }
 
+// Digits and % in a 3x5 pixel font, for the batteries.
+static int tinyNumber(int x, int y, const char *s, uint16_t col) {
+  static const uint16_t GLYPHS[11] = {
+      0x7B6F, 0x2C97, 0x73E7, 0x73CF, 0x5BC9, 0x79CF, 0x79EF, 0x7292, 0x7BEF, 0x7BCF, 0x52A5,  // 0-9, %
+  };
+  for (; *s; s++, x += 4) {
+    int g = *s == '%' ? 10 : *s - '0';
+    if (g < 0 || g > 10) continue;
+    for (int b = 0; b < 15; b++)
+      if (GLYPHS[g] & (1 << (14 - b))) gfx->drawPixel(x + b % 3, y + b / 3, col);
+  }
+  return x;
+}
+
+// A small five-cell pixel battery with its percentage.
+static void drawBatteryAt(int x, int y, float value) {
+  int pct = (int)roundf(value);
+  int bars = (pct + 19) / 20;
+  uint16_t ink = COL565(36, 24, 26);
+  uint16_t fill = pct > 60 ? COL565(70, 170, 100) : pct > 30 ? COL565(225, 150, 40) : COL565(220, 70, 60);
+  gfx->drawRect(x, y, 12, 6, ink);          // body
+  gfx->fillRect(x + 12, y + 2, 1, 2, ink);  // nub
+  for (int i = 0; i < bars; i++) gfx->fillRect(x + 2 + i * 2, y + 2, 1, 2, fill);
+  char buf[6];
+  snprintf(buf, sizeof(buf), "%d%%", pct);
+  tinyNumber(x + 15, y + 1, buf, ink);
+}
+
+// Overall feeling at the top of the screen; tap it for the breakdown.
+#define BATTERY_Y 8
+static void drawBattery() {
+  int w = 15 + 4 * 3;
+  drawBatteryAt((VW - w) / 2, BATTERY_Y, petMood());
+}
+
+static bool onBattery(int cx, int cy) { return cy < BATTERY_Y + 14 && abs(cx - VW / 2) < 26; }
+
+// The three needs, each as its own battery.
 static void drawNeeds() {
   if (statsShown <= 0) return;
   Stats s = petStats();
   struct {
     float v;
-    uint16_t col;
     const char *name;
-  } rings[] = {
-      {s.fitness, COL565(70, 170, 100), "FIT"},
-      {s.brain, COL565(70, 120, 220), "BRAIN"},
-      {s.esteem, COL565(225, 150, 40), "SELF"},
-  };
+  } rows[] = {{s.fitness, "FIT"}, {s.brain, "BRAIN"}, {s.esteem, "SELF"}};
+  int x = VW / 2 - 30, y = VH / 2 - 12;  // centred, so the box corners stay inside the round screen
+  gfx->fillRect(x - 4, y - 4, 68, 33, COL565(250, 247, 240));
+  gfx->drawRect(x - 4, y - 4, 68, 33, COL565(36, 24, 26));
   for (int i = 0; i < 3; i++) {
-    int r = VW / 2 - 1 - i * 4;
-    gfx->fillArc(VW / 2, VH / 2, r, r - 2, 135, 405, COL565(232, 226, 214));
-    gfx->fillArc(VW / 2, VH / 2, r, r - 2, 135, 135 + 270 * rings[i].v / 100, rings[i].col);
-  }
-  gfx->fillRect(VW / 2 - 25, 60, 50, 27, COL565(250, 247, 240));
-  gfx->drawRect(VW / 2 - 25, 60, 50, 27, COL565(36, 24, 26));
-  for (int i = 0; i < 3; i++) {
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%-5s%3d", rings[i].name, (int)rings[i].v);
-    centerText(buf, 65 + i * 8, 1, rings[i].col);
+    gfx->setTextSize(1);
+    gfx->setTextColor(COL565(36, 24, 26));
+    gfx->setCursor(x, y + i * 9);
+    gfx->print(rows[i].name);
+    drawBatteryAt(x + 32, y + i * 9 + 1, rows[i].v);
   }
 }
 
@@ -168,11 +203,26 @@ static void nextCard() {
   cardFlipped = false;
 }
 
+// Screen touch point -> canvas pixel, undoing the turn applied in rotate().
+static void toCanvas(int16_t x, int16_t y, int &cx, int &cy) {
+  int X = x / PX, Y = y / PX;
+  switch (petQuarter()) {
+    case 1: cx = VW - 1 - Y, cy = X; break;
+    case 2: cx = VW - 1 - X, cy = VH - 1 - Y; break;
+    case 3: cx = Y, cy = VH - 1 - X; break;
+    default: cx = X, cy = Y;
+  }
+}
+
+static bool touchOnBattery(int16_t x, int16_t y) {
+  int cx, cy;
+  toCanvas(x, y, cx, cy);
+  return screen == FACE && !pomodoroEnd && onBattery(cx, cy);
+}
+
 static void onTap(int16_t x, int16_t y) {
   if (screen == CARD) {
     cardFlipped = !cardFlipped;
-  } else if (statsShown > 0) {
-    statsShown = 0;
   } else {
     petTap(x, y);
   }
@@ -189,7 +239,7 @@ static void onSwipe(int dx, int dy) {
     return;
   }
   if (abs(dy) > abs(dx)) {
-    if (dy < 0) statsShown = 6;
+    if (dy < 0) statsShown = 6, statsOpenedAt = millis();
     else statsShown = 0;
   } else {
     screen = CARD;
@@ -208,17 +258,48 @@ static void onLongPress() {
   }
 }
 
+static void onPress(int16_t x, int16_t y, uint32_t now) {
+  tp = {true, false, false, x, y, x, y, now, 0};
+  // The breakdown toggles as soon as the finger lands: the battery opens it,
+  // any touch closes it.
+  if (screen == FACE && statsShown > 0) {
+    if (now - statsOpenedAt > 300) statsShown = 0;
+    tp.consumed = true;
+    return;
+  }
+  if (touchOnBattery(x, y)) {
+    statsShown = 8;
+    statsOpenedAt = now;
+    tp.consumed = true;
+    return;
+  }
+  if (screen == FACE) petTouch(true);
+  else petWake();
+}
+
+static void onRelease(uint32_t now) {
+  tp.down = false;
+  petTouch(false);
+  if (tp.longFired || tp.consumed) return;
+  int dx = tp.x - tp.x0, dy = tp.y - tp.y0;
+  if (abs(dx) > SWIPE_PX || abs(dy) > SWIPE_PX) onSwipe(dx, dy);
+  else if (now - tp.t0 < 400) onTap(tp.x, tp.y);
+}
+
+#define LIFT_DEBOUNCE_MS 60  // the touch chip sometimes reports a lift for a moment mid-touch
+
 static void handleTouch() {
+  static uint32_t liftedAt = 0;
   Touch t = touchRead();
   uint32_t now = millis();
   if (t.down) {
     cardIdleSince = now;
+    liftedAt = 0;
     if (!tp.down) {
-      tp = {true, false, t.x, t.y, t.x, t.y, now, 0};
-      if (screen == FACE) petTouch(true);
-      else petWake();
+      onPress(t.x, t.y, now);
       return;
     }
+    if (tp.consumed) return;
     tp.travel += hypotf(t.x - tp.x, t.y - tp.y);
     tp.x = t.x;
     tp.y = t.y;
@@ -234,16 +315,18 @@ static void handleTouch() {
     return;
   }
   if (!tp.down) return;
-  tp.down = false;
-  petTouch(false);
-  if (tp.longFired) return;
-  int dx = tp.x - tp.x0, dy = tp.y - tp.y0;
-  if (abs(dx) > SWIPE_PX || abs(dy) > SWIPE_PX) onSwipe(dx, dy);
-  else if (now - tp.t0 < 400) onTap(tp.x, tp.y);
+  if (!liftedAt) liftedAt = now;
+  if (now - liftedAt >= LIFT_DEBOUNCE_MS) {
+    onRelease(liftedAt);
+    liftedAt = 0;
+  }
 }
 
 void setup() {
   Serial.begin(115200);
+  // With the cable in but no program reading, every print would wait 100 ms for
+  // the host and freeze the loop long enough to miss taps. Never wait.
+  Serial.setTxTimeoutMs(0);
   hwBegin();
   if (!gfx->begin(80000000)) Serial.println("display init failed");
   for (auto &f : frames) f = (uint16_t *)heap_caps_aligned_alloc(16, LCD_W * LCD_H * 2, MALLOC_CAP_SPIRAM);
@@ -273,7 +356,7 @@ void loop() {
   handleTouch();
   Motion m = imuRead();
   // Serial commands for testing: S = screenshot, R = pretend the badge was turned a quarter,
-  // T / U = finger down / up.
+  // T / U = finger down / up, B / C = tap the battery / the centre, 0-2 = demo moods.
   static int simQuarter = -1;
   while (Serial.available()) {
     char c = Serial.read();
@@ -281,6 +364,12 @@ void loop() {
     if (c == 'R') simQuarter = (simQuarter + 1) % 4;
     if (c == 'T') petTouch(true);
     if (c == 'U') petTouch(false);
+    if (c >= '0' && c <= '2') petDemo(c - '0');  // demo moods
+    if (c == 'B' || c == 'C') {  // tap the battery / the centre
+      uint32_t n = millis();
+      onPress(LCD_W / 2, c == 'B' ? (BATTERY_Y + 4) * PX : LCD_H / 2, n);
+      onRelease(n + 100);
+    }
   }
   if (!m.ok && simQuarter >= 0) {
     static const float g[4][2] = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
@@ -303,6 +392,7 @@ void loop() {
   } else {
     petDraw(gfx, nowMs / 1000.0f);
     drawPomodoro();
+    if (!pomodoroEnd) drawBattery();
     drawNeeds();
   }
   uint32_t t1 = micros();

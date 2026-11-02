@@ -61,7 +61,21 @@ void petBegin() {
   coat = prefs.getUChar("coat");
 }
 
+// Demo moods for showing states off: real needs are set aside and not saved.
+static bool demo = false;
+static Stats realStats;
+
+void petDemo(int mode) {
+  if (!demo && mode) realStats = st;
+  demo = mode != 0;
+  if (mode == 1) st = {realStats.fitness, realStats.brain, 20};  // hurt self-esteem: sulks
+  else if (mode == 2) st = {10, 10, 10};                         // everything neglected
+  else st = realStats;
+  attention = 0;
+}
+
 void petSave() {
+  if (demo) return;
   prefs.putFloat("fit", st.fitness);
   prefs.putFloat("brain", st.brain);
   prefs.putFloat("esteem", st.esteem);
@@ -98,6 +112,8 @@ static float mood() {
   float bonus = 20.0f * attention / ATTENTION_LIFETIME_S;
   return clampf(base + bonus, 0, 100);
 }
+
+float petMood() { return mood(); }
 
 static void attend(float seconds) { attention = fminf(ATTENTION_LIFETIME_S, attention + seconds); }
 
@@ -281,7 +297,8 @@ void petUpdate(float dt, const Motion &m, float micDb, float micFloorDb) {
   bool canWalk = !asleep && !focus && st.fitness > 25 && mood() > 30 && listen < 0.5f && petted <= 0;
   walkIn -= dt;
   if (canWalk && walkIn <= 0) {
-    walkTo = frand(VW * 0.32f, VW * 0.68f);
+    // Short strolls out and back, so it is usually sitting in the middle.
+    walkTo = fabsf(posX - VW / 2.0f) > 1 ? VW / 2.0f : VW / 2.0f + frand(-14, 14);
     walkIn = frand(3, 8) * (1.5f - st.fitness / 100);
   }
   if (!canWalk) walkTo = posX;
@@ -413,7 +430,7 @@ void petDraw(Arduino_GFX *g, float t) {
   float dull = clampf((40 - md) / 40, 0, 1) * 0.6f;
 
   // Plain white room, like a sticker sheet.
-  int floorY = 66;
+  int floorY = VH / 2 + SPR_SIT.h * SPR / 2;  // the sitting pose is centred on the screen
   g->fillScreen(rgb(250, 247, 240));
 
   const Coat &cc = COATS[coat % (sizeof(COATS) / sizeof(COATS[0]))];
