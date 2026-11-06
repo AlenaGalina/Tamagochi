@@ -28,6 +28,7 @@
 #define ADDR_EXPANDER 0x20
 #define ADDR_RTC 0x51
 #define ADDR_MIC_ADC 0x40
+#define ADDR_SPEAKER_DAC 0x18
 
 // Touch: CST816 on the shared bus
 #define TP_INT 4

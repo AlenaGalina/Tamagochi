@@ -4,9 +4,9 @@
 //   tap            pet it
 //   stroke         pet it longer
 //   hold 1.5 s     start / cancel a 25-minute pomodoro
-//   swipe up       show the three needs
-//   swipe sideways open German cards
-// Card screen: tap flips, swipe right = learned (+brain), left = skip, down = back.
+//   battery        tap: each need separately; hold 3 s: Wi-Fi setup
+//   card icon      today's German words (also: swipe sideways)
+// Card screen: tap shows the answer, swipe right = know it, left = again, down = back.
 
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
@@ -14,7 +14,11 @@
 #include "board.h"
 #include "hw.h"
 #include "pet.h"
-#include "cards.h"
+#include "words.h"
+#include "net.h"
+#include "fonts.h"
+#include "sound.h"
+#include "radio.h"
 
 #define POMODORO_S (25 * 60)
 #define LONG_PRESS_MS 1500
@@ -89,19 +93,20 @@ static void present() {
   drawing ^= 1;
 }
 
-enum Screen { FACE, CARD };
+enum Screen { FACE, CARD, SETUP };
 static Screen screen = FACE;
 static uint32_t statsOpenedAt = 0;
 static float statsShown = 0;  // seconds left showing the needs ring
 static uint32_t pomodoroEnd = 0;  // millis, 0 when not running
-static int card = 0;
+static int card = -1;  // DECK index on the card screen, -1 when today's words are done
 static bool cardFlipped = false;
-static uint32_t cardIdleSince = 0;
+static uint32_t cardIdleSince = 0, doneSince = 0, setupDoneSince = 0;
 
 static struct {
   bool down;
   bool longFired;
   bool consumed;  // this touch only closed the breakdown; ignore the rest of it
+  bool onBattery;
   int16_t x0, y0, x, y;
   uint32_t t0;
   float travel;
@@ -174,6 +179,59 @@ static void drawNeeds() {
   }
 }
 
+// ---- Text in the pixel fonts (monospace, UTF-8) ----
+
+struct Font {
+  const uint8_t *data;
+  int w, h, ascent;  // glyph width, line height, baseline offset from the top
+};
+static const Font DE = {u8g2_font_6x12_tf, 6, 12, 9};
+static const Font RU = {u8g2_font_6x12_t_cyrillic, 6, 12, 9};
+static const Font DE_S = {u8g2_font_5x8_tf, 5, 9, 7};
+static const Font RU_S = {u8g2_font_5x8_t_cyrillic, 5, 9, 7};
+
+static int utf8Len(const char *s, int n) {
+  int k = 0;
+  for (int i = 0; i < n; i++) k += (s[i] & 0xC0) != 0x80;
+  return k;
+}
+
+// One centred line; y is the top of the line.
+static void lineAt(const Font &f, const char *s, int n, int y, uint16_t col) {
+  gfx->setFont(f.data);
+  gfx->setUTF8Print(true);
+  gfx->setTextWrap(false);
+  gfx->setTextSize(1);
+  gfx->setTextColor(col);
+  gfx->setCursor((VW - utf8Len(s, n) * f.w) / 2, y + f.ascent);
+  for (int i = 0; i < n; i++) gfx->write((uint8_t)s[i]);
+  gfx->setFont((const GFXfont *)NULL);
+}
+
+// Breaks text into centred lines no wider than maxW, at spaces and at '|'.
+// Returns the lines' total height; draws only when draw is set.
+static int wrapAt(const Font &f, const char *s, int y, int maxW, uint16_t col, bool draw = true) {
+  int maxChars = maxW / f.w, top = y;
+  while (*s) {
+    int len = 0, lastSpace = -1, chars = 0;
+    while (s[len] && s[len] != '|') {
+      if ((s[len] & 0xC0) != 0x80) {
+        if (chars == maxChars) break;
+        chars++;
+      }
+      if (s[len] == ' ') lastSpace = len;
+      len++;
+    }
+    int cut = len;
+    if (s[len] && s[len] != '|' && lastSpace > 0) cut = lastSpace;
+    if (draw) lineAt(f, s, cut, y, col);
+    y += f.h;
+    s += cut;
+    while (*s == ' ' || *s == '|') s++;
+  }
+  return y - top;
+}
+
 static void drawPomodoro() {
   if (!pomodoroEnd) return;
   int32_t left = (int32_t)(pomodoroEnd - millis()) / 1000;
@@ -183,24 +241,107 @@ static void drawPomodoro() {
   char buf[8];
   snprintf(buf, sizeof(buf), "%02ld:%02ld", (long)left / 60, (long)left % 60);
   centerText(buf, 12, 1, COL565(60, 50, 50));
+  const char *station = radioStation();  // credit the station that's playing
+  if (*station) lineAt(DE_S, station, strlen(station), 76, COL565(150, 140, 130));
+}
+
+// ---- German cards ----
+
+static void openCards() {
+  screen = CARD;
+  card = wordsNext();
+  cardFlipped = false;
+  doneSince = card < 0 ? millis() : 0;
+  cardIdleSince = millis();
+}
+
+static void answerCard(bool known) {
+  if (card < 0) return;
+  wordsAnswer(card, known);
+  card = wordsNext();
+  cardFlipped = false;
+  if (card < 0) doneSince = millis();
 }
 
 static void drawCard() {
+  uint16_t ink = COL565(36, 24, 26), grey = COL565(150, 140, 130), blue = COL565(70, 120, 220);
   gfx->fillScreen(COL565(250, 247, 240));
-  const Card &c = CARDS[card];
-  const char *word = cardFlipped ? c.en : c.de;
-  centerText(cardFlipped ? "english" : "deutsch", 26, 1, COL565(70, 120, 220));
-  centerText(word, VH / 2, strlen(word) > 7 ? 1 : 2, COL565(36, 24, 26));
-  centerText("tap: flip", 60, 1, COL565(150, 140, 130));
-  centerText("<skip  ok>", 69, 1, COL565(150, 140, 130));
-  char buf[12];
-  snprintf(buf, sizeof(buf), "%d/%d", card + 1, CARD_COUNT);
-  centerText(buf, 79, 1, COL565(180, 170, 160));
+  if (card < 0) {
+    wrapAt(RU, "Слова на сегодня готовы!", 26, 72, ink);
+    wrapAt(RU_S, "завтра ещё 10", 58, 80, grey);
+    return;
+  }
+  const Card &c = DECK[card];
+  char top[24];
+  if (wordsIsNew(card)) snprintf(top, sizeof(top), "новое %d/%d", wordsNewToday() + 1, WORDS_PER_DAY);
+  else snprintf(top, sizeof(top), "повтор %d", wordsLeftToday());
+  lineAt(RU_S, top, strlen(top), 10, blue);
+
+  // Verb forms read better on two lines: Präteritum, then Perfekt.
+  char forms[64];
+  snprintf(forms, sizeof(forms), "%s", c.forms);
+  if (char *comma = strstr(forms, ", ")) *comma = '|', comma[1] = ' ';
+
+  int hDe = wrapAt(DE, c.de, 0, 84, ink, false);
+  if (!cardFlipped) {
+    wrapAt(DE, c.de, 44 - hDe / 2, 84, ink);
+    lineAt(RU_S, "тап: ответ", strlen("тап: ответ"), 72, grey);
+    return;
+  }
+  int hForms = forms[0] ? wrapAt(DE_S, forms, 0, 80, grey, false) + 2 : 0;
+  int hRu = wrapAt(RU, c.ru, 0, 80, blue, false);
+  int y = 44 - (hDe + hForms + 2 + hRu) / 2;
+  y += wrapAt(DE, c.de, y, 84, ink);
+  if (forms[0]) y += wrapAt(DE_S, forms, y + 1, 80, grey) + 2;
+  wrapAt(RU, c.ru, y + 2, 80, blue);
+  lineAt(RU_S, "<ещё   знаю>", strlen("<ещё   знаю>"), 74, grey);
 }
 
-static void nextCard() {
-  card = (card + 1 + esp_random() % (CARD_COUNT - 1)) % CARD_COUNT;
-  cardFlipped = false;
+// The pet offers today's words: a little card on the floor with how many are left.
+#define OFFER_X 64
+#define OFFER_Y 52
+static bool offering() { return screen == FACE && !pomodoroEnd && !petAsleep() && wordsLeftToday() > 0; }
+
+static void drawOffer(float t) {
+  if (!offering()) return;
+  int y = OFFER_Y - ((int)(t * 2) % 2);  // a small hop, to catch the eye
+  uint16_t ink = COL565(36, 24, 26);
+  gfx->fillRect(OFFER_X, y, 13, 10, COL565(255, 255, 255));
+  gfx->drawRect(OFFER_X, y, 13, 10, ink);
+  gfx->drawFastHLine(OFFER_X + 2, y + 2, 9, COL565(70, 120, 220));
+  char n[4];
+  snprintf(n, sizeof(n), "%d", wordsLeftToday() > 99 ? 99 : wordsLeftToday());
+  tinyNumber(OFFER_X + 7 - strlen(n) * 2, y + 4, n, ink);
+}
+
+// ---- Wi-Fi setup ----
+
+static void openSetup() {
+  netStartSetup();
+  screen = SETUP;
+  setupDoneSince = 0;
+}
+
+static void drawSetup() {
+  uint16_t ink = COL565(36, 24, 26), grey = COL565(150, 140, 130), blue = COL565(70, 120, 220);
+  gfx->fillScreen(COL565(250, 247, 240));
+  lineAt(DE, "Wi-Fi", 5, 12, blue);
+  if (netState() == NET_SETUP) {
+    wrapAt(RU_S, "Подключи телефон к сети", 25, 80, ink);
+    lineAt(DE, SETUP_AP_NAME, strlen(SETUP_AP_NAME), 44, ink);
+    wrapAt(RU_S, "и открой страницу", 57, 76, ink);
+    lineAt(RU_S, "тап: позже", strlen("тап: позже"), 78, grey);
+    return;
+  }
+  wrapAt(RU_S, netMessage(), 36, 76, ink);
+  if (netTimeSynced() && netState() == NET_OFF) {
+    struct tm tm;
+    time_t now = time(nullptr);
+    localtime_r(&now, &tm);
+    char hm[8];
+    snprintf(hm, sizeof(hm), "%02d:%02d", tm.tm_hour, tm.tm_min);
+    lineAt(DE, hm, strlen(hm), 52, blue);
+  }
 }
 
 // Screen touch point -> canvas pixel, undoing the turn applied in rotate().
@@ -220,21 +361,33 @@ static bool touchOnBattery(int16_t x, int16_t y) {
   return screen == FACE && !pomodoroEnd && onBattery(cx, cy);
 }
 
+static bool touchOnOffer(int16_t x, int16_t y) {
+  int cx, cy;
+  toCanvas(x, y, cx, cy);
+  return offering() && cx >= OFFER_X - 6 && cx <= OFFER_X + 19 && cy >= OFFER_Y - 8 && cy <= OFFER_Y + 14;
+}
+
 static void onTap(int16_t x, int16_t y) {
-  if (screen == CARD) {
-    cardFlipped = !cardFlipped;
+  if (screen == SETUP) {
+    netStopSetup();
+    screen = FACE;
+  } else if (screen == CARD) {
+    if (card < 0) screen = FACE;
+    else cardFlipped = !cardFlipped;
+  } else if (touchOnOffer(x, y)) {
+    openCards();
   } else {
     petTap(x, y);
   }
 }
 
 static void onSwipe(int dx, int dy) {
+  if (screen == SETUP) return;
   if (screen == CARD) {
     if (abs(dy) > abs(dx)) {
       if (dy > 0) screen = FACE;
     } else {
-      if (dx > 0) petCardLearned();
-      nextCard();
+      answerCard(dx > 0);
     }
     return;
   }
@@ -242,8 +395,7 @@ static void onSwipe(int dx, int dy) {
     if (dy < 0) statsShown = 6, statsOpenedAt = millis();
     else statsShown = 0;
   } else {
-    screen = CARD;
-    nextCard();
+    openCards();
   }
 }
 
@@ -255,11 +407,12 @@ static void onLongPress() {
   } else {
     pomodoroEnd = millis() + POMODORO_S * 1000UL;
     petSetFocus(true);
+    soundPlay(SOUND_POMODORO_START);  // background music (musicStart) is parked for now
   }
 }
 
 static void onPress(int16_t x, int16_t y, uint32_t now) {
-  tp = {true, false, false, x, y, x, y, now, 0};
+  tp = {true, false, false, false, x, y, x, y, now, 0};
   // The breakdown toggles as soon as the finger lands: the battery opens it,
   // any touch closes it.
   if (screen == FACE && statsShown > 0) {
@@ -270,10 +423,10 @@ static void onPress(int16_t x, int16_t y, uint32_t now) {
   if (touchOnBattery(x, y)) {
     statsShown = 8;
     statsOpenedAt = now;
-    tp.consumed = true;
+    tp.consumed = tp.onBattery = true;
     return;
   }
-  if (screen == FACE) petTouch(true);
+  if (screen == FACE && !touchOnOffer(x, y)) petTouch(true);
   else petWake();
 }
 
@@ -298,6 +451,11 @@ static void handleTouch() {
     if (!tp.down) {
       onPress(t.x, t.y, now);
       return;
+    }
+    if (tp.onBattery && !tp.longFired && now - tp.t0 > 3000) {  // hold the battery: Wi-Fi setup
+      tp.longFired = true;
+      statsShown = 0;
+      openSetup();
     }
     if (tp.consumed) return;
     tp.travel += hypotf(t.x - tp.x, t.y - tp.y);
@@ -342,9 +500,15 @@ void setup() {
 
   if (!imuBegin()) Serial.println("IMU not found");
   rtcSetIfLost();
-  micBegin();
+  audioBegin();
+  musicBegin();
+  radioBegin();
+  netBegin();  // sets the time zone before anything asks for local days
   petBegin();
   petTick(rtcNow());
+  wordsBegin();
+  wordsSetDay(localDay(rtcNow()));
+  if (!netConfigured()) openSetup();
 }
 
 void loop() {
@@ -356,7 +520,8 @@ void loop() {
   handleTouch();
   Motion m = imuRead();
   // Serial commands for testing: S = screenshot, R = pretend the badge was turned a quarter,
-  // T / U = finger down / up, B / C = tap the battery / the centre, 0-2 = demo moods.
+  // T / U = finger down / up, B / C = tap the battery / the centre, 0-2 = demo moods,
+  // W = Wi-Fi setup, P / E = pomodoro start / finish sound, M = music on / off, O = open cards, F = flip, K / J = know it / again, Q = back to the face.
   static int simQuarter = -1;
   while (Serial.available()) {
     char c = Serial.read();
@@ -365,6 +530,14 @@ void loop() {
     if (c == 'T') petTouch(true);
     if (c == 'U') petTouch(false);
     if (c >= '0' && c <= '2') petDemo(c - '0');  // demo moods
+    if (c == 'W') openSetup();
+    if (c == 'P') soundPlay(SOUND_POMODORO_START);
+    if (c == 'E') soundPlay(SOUND_POMODORO_FINISH);
+    if (c == 'M') musicPlaying() ? musicStop(true) : musicStart();
+    if (c == 'O') openCards();
+    if (c == 'F') cardFlipped = !cardFlipped;
+    if (c == 'K' || c == 'J') answerCard(c == 'K');
+    if (c == 'Q') screen = FACE;
     if (c == 'B' || c == 'C') {  // tap the battery / the centre
       uint32_t n = millis();
       onPress(LCD_W / 2, c == 'B' ? (BATTERY_Y + 4) * PX : LCD_H / 2, n);
@@ -375,22 +548,33 @@ void loop() {
     static const float g[4][2] = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
     m = {g[simQuarter][0], g[simQuarter][1], 0, 0, 0, true};
   }
-  petUpdate(dt, m, micLevel(), micFloor());
+  // While the badge plays a sound its own mics hear it; the pet shouldn't take that for talking.
+  petUpdate(dt, m, soundBusy() ? micFloor() : micLevel(), micFloor());
 
   if (pomodoroEnd && (int32_t)(nowMs - pomodoroEnd) >= 0) {
     pomodoroEnd = 0;
     petSetFocus(false);
+    soundPlay(SOUND_POMODORO_FINISH);
     petPomodoroDone();
     statsShown = 4;
   }
-  if (screen == CARD && nowMs - cardIdleSince > 30000) screen = FACE;
+  netLoop();
+  if (screen == CARD && (int32_t)(nowMs - cardIdleSince) > 30000) screen = FACE;
+  if (screen == CARD && card < 0 && doneSince && (int32_t)(nowMs - doneSince) > 4000) screen = FACE;
+  if (screen == SETUP && netState() == NET_OFF && netTimeSynced()) {
+    if (!setupDoneSince) setupDoneSince = nowMs;
+    if ((int32_t)(nowMs - setupDoneSince) > 3000) screen = FACE;
+  }
   statsShown = fmaxf(0, statsShown - dt);
 
   uint32_t t0 = micros();
   if (screen == CARD) {
     drawCard();
+  } else if (screen == SETUP) {
+    drawSetup();
   } else {
     petDraw(gfx, nowMs / 1000.0f);
+    drawOffer(nowMs / 1000.0f);
     drawPomodoro();
     if (!pomodoroEnd) drawBattery();
     drawNeeds();
@@ -405,10 +589,18 @@ void loop() {
 
   analogWrite(LCD_BL, petAsleep() && !pomodoroEnd ? 40 : 255);
 
+  // While music plays the screen barely changes (a sleeping pet and a timer), and
+  // the second core is decoding the radio: 15 frames a second is plenty.
+  if (musicPlaying()) {
+    int32_t spare = 66 - (int32_t)(millis() - nowMs);
+    vTaskDelay(pdMS_TO_TICKS(spare > 1 ? spare : 1));
+  }
+
   if (nowMs - lastSave > 60000) {
     lastSave = nowMs;
     petTick(rtcNow());
     petSave();
+    wordsSetDay(localDay(rtcNow()));
   }
   if (nowMs - lastLog > 1000) {
     lastLog = nowMs;
@@ -417,8 +609,9 @@ void loop() {
     frames = drawUs = flushUs = 0;
     Stats s = petStats();
     Touch t = touchRead();
-    Serial.printf("tp=%d,%d,%d g=(%.2f %.2f %.2f) spin=%.0f mic=%.1f floor=%.1f fit=%.0f brain=%.0f esteem=%.0f rtc=%lu\n",
+    Serial.printf("tp=%d,%d,%d g=(%.2f %.2f %.2f) spin=%.0f mic=%.1f floor=%.1f fit=%.0f brain=%.0f esteem=%.0f rtc=%lu "
+                  "net=%d words=%d radio=%d in=%lu\n",
                   t.down, t.x, t.y, m.gx, m.gy, m.gz, m.spin, micLevel(), micFloor(), s.fitness, s.brain, s.esteem,
-                  (unsigned long)rtcNow());
+                  (unsigned long)rtcNow(), netState(), wordsLeftToday(), radioAvailable(), (unsigned long)radioBytesIn());
   }
 }

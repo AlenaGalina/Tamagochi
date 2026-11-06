@@ -1,6 +1,6 @@
 """Grabs the badge's current frame over USB serial and saves it as a PNG.
 
-Usage: python3 tools/screenshot.py out.png [port]
+Usage: python3 tools/screenshot.py out.png [port]   (finds the badge by itself)
 """
 import sys
 import serial
@@ -8,7 +8,15 @@ from PIL import Image
 
 VW = VH = 90
 SCALE = 4
-port = sys.argv[2] if len(sys.argv) > 2 else "/dev/cu.usbmodem1101"
+def find_port():
+    from serial.tools import list_ports
+    for p in list_ports.comports():
+        if p.vid == 0x303A:  # Espressif's USB serial
+            return p.device
+    raise SystemExit("badge not found on USB")
+
+
+port = sys.argv[2] if len(sys.argv) > 2 else find_port()
 s = serial.Serial(port, 115200, timeout=3)
 s.reset_input_buffer()
 s.write(b"S")

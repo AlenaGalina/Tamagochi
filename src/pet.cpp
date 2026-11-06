@@ -158,9 +158,16 @@ void petPomodoroDone() {
   petSave();
 }
 
-void petCardLearned() {
-  st.brain = clampf(st.brain + 5, 0, 100);
-  attend(20);
+void petCardAnswered(bool known) {
+  if (known) st.brain = clampf(st.brain + 2, 0, 100);
+  attend(10);
+}
+
+void petWordsDone() {  // today's words all done: a real boost and a little party
+  st.brain = clampf(st.brain + 15, 0, 100);
+  attend(120);
+  jumpV = -260;
+  petted = 2;
   petSave();
 }
 

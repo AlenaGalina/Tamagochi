@@ -1,0 +1,387 @@
+# German B1 deck. One card per line, tab-separated:
+#   German<TAB>forms<TAB>Russian
+# forms: plural for nouns ("—" when there is none), Präteritum and Perfekt for
+# verbs, empty for everything else. tools/gen_deck.py mixes nouns, verbs and the
+# rest so each day gets some of each, keeping the order within each kind.
+die Abteilung	die Abteilungen	отдел
+der Abschluss	die Abschlüsse	окончание, диплом
+die Absicht	die Absichten	намерение
+die Anmeldung	die Anmeldungen	регистрация
+die Anzeige	die Anzeigen	объявление
+der Anspruch	die Ansprüche	притязание, право
+die Ausbildung	die Ausbildungen	профобучение
+der Ausflug	die Ausflüge	экскурсия, вылазка
+die Auskunft	die Auskünfte	справка
+die Ausnahme	die Ausnahmen	исключение
+der Ausweis	die Ausweise	удостоверение
+die Bedingung	die Bedingungen	условие
+der Beitrag	die Beiträge	взнос, вклад
+die Behörde	die Behörden	ведомство
+die Beratung	die Beratungen	консультация
+der Bereich	die Bereiche	область, сфера
+der Bericht	die Berichte	отчёт, репортаж
+die Beschwerde	die Beschwerden	жалоба
+die Bewerbung	die Bewerbungen	заявка на работу
+die Beziehung	die Beziehungen	отношения
+der Unterschied	die Unterschiede	разница
+die Erfahrung	die Erfahrungen	опыт
+das Ergebnis	die Ergebnisse	результат
+die Erlaubnis	die Erlaubnisse	разрешение
+die Gelegenheit	die Gelegenheiten	возможность, случай
+das Gehalt	die Gehälter	зарплата, оклад
+das Gericht	die Gerichte	блюдо; суд
+die Gesellschaft	die Gesellschaften	общество; компания
+das Gesetz	die Gesetze	закон
+die Gewohnheit	die Gewohnheiten	привычка
+der Haushalt	die Haushalte	домашнее хозяйство
+die Hälfte	die Hälften	половина
+der Hinweis	die Hinweise	указание, подсказка
+die Kenntnis	die Kenntnisse	знание
+die Kündigung	die Kündigungen	увольнение, расторжение
+die Lage	die Lagen	положение, ситуация
+der Lohn	die Löhne	заработная плата
+die Leistung	die Leistungen	достижение; услуга
+die Menge	die Mengen	количество, масса
+die Miete	die Mieten	арендная плата
+die Mehrheit	die Mehrheiten	большинство
+der Nachteil	die Nachteile	недостаток
+der Vorteil	die Vorteile	преимущество
+die Pflicht	die Pflichten	обязанность
+der Rat	die Ratschläge	совет
+die Rente	die Renten	пенсия
+der Schaden	die Schäden	ущерб, вред
+die Sorge	die Sorgen	забота, беспокойство
+die Stelle	die Stellen	место, должность
+die Steuer	die Steuern	налог
+die Stimmung	die Stimmungen	настроение, атмосфера
+die Umgebung	die Umgebungen	окрестности
+die Umwelt	—	окружающая среда
+die Unterhaltung	die Unterhaltungen	беседа; развлечение
+die Unterkunft	die Unterkünfte	жильё, ночлег
+die Unterschrift	die Unterschriften	подпись
+die Ursache	die Ursachen	причина
+der Verkehr	—	движение, транспорт
+der Vertrag	die Verträge	договор
+das Verhalten	—	поведение
+die Verantwortung	—	ответственность
+der Verein	die Vereine	объединение, клуб
+die Versicherung	die Versicherungen	страховка
+die Verspätung	die Verspätungen	опоздание
+die Voraussetzung	die Voraussetzungen	предпосылка, условие
+der Vorschlag	die Vorschläge	предложение (идея)
+die Vorstellung	die Vorstellungen	представление
+der Zeitpunkt	die Zeitpunkte	момент времени
+die Zeitschrift	die Zeitschriften	журнал
+der Zusammenhang	die Zusammenhänge	связь, контекст
+die Zusammenarbeit	—	сотрудничество
+der Zustand	die Zustände	состояние
+das Angebot	die Angebote	предложение, оферта
+die Ankunft	die Ankünfte	прибытие
+die Abfahrt	die Abfahrten	отправление
+die Aussicht	die Aussichten	вид; перспектива
+die Auswahl	—	выбор, ассортимент
+die Bevölkerung	—	население
+der Bewohner	die Bewohner	житель
+die Bitte	die Bitten	просьба
+der Blick	die Blicke	взгляд
+der Eindruck	die Eindrücke	впечатление
+die Einladung	die Einladungen	приглашение
+die Einstellung	die Einstellungen	отношение; настройка
+die Entwicklung	die Entwicklungen	развитие
+die Ernährung	—	питание
+die Fähigkeit	die Fähigkeiten	способность
+der Fortschritt	die Fortschritte	прогресс
+die Freizeit	—	свободное время
+das Gefühl	die Gefühle	чувство
+das Gespräch	die Gespräche	разговор
+die Geduld	—	терпение
+die Grenze	die Grenzen	граница
+die Hoffnung	die Hoffnungen	надежда
+der Inhalt	die Inhalte	содержание
+die Kosten	только мн. ч.	расходы, затраты
+die Kraft	die Kräfte	сила
+der Lebenslauf	die Lebensläufe	резюме, биография
+die Mannschaft	die Mannschaften	команда
+das Mitglied	die Mitglieder	член, участник
+die Mühe	die Mühen	усилие, старание
+der Ort	die Orte	место
+die Quittung	die Quittungen	квитанция, чек
+das Recht	die Rechte	право
+die Regel	die Regeln	правило
+die Reihe	die Reihen	ряд; очередь
+der Rest	die Reste	остаток
+das Schild	die Schilder	табличка, вывеска
+der Schritt	die Schritte	шаг
+die Sendung	die Sendungen	передача; посылка
+die Tätigkeit	die Tätigkeiten	деятельность
+der Treffpunkt	die Treffpunkte	место встречи
+das Thema	die Themen	тема
+die Überraschung	die Überraschungen	сюрприз
+die Übung	die Übungen	упражнение
+die Veranstaltung	die Veranstaltungen	мероприятие
+die Verbindung	die Verbindungen	связь, соединение
+das Vertrauen	—	доверие
+die Verwaltung	die Verwaltungen	администрация
+der Wunsch	die Wünsche	желание
+die Wirkung	die Wirkungen	действие, эффект
+der Zweck	die Zwecke	цель, назначение
+das Ereignis	die Ereignisse	событие
+der Erfolg	die Erfolge	успех
+die Erholung	—	отдых, восстановление
+die Gefahr	die Gefahren	опасность
+die Werbung	—	реклама
+die Wissenschaft	die Wissenschaften	наука
+die Forschung	die Forschungen	исследование
+abhängen (von)	hing ab, hat abgehangen	зависеть (от)
+ablehnen	lehnte ab, hat abgelehnt	отклонять
+abschließen	schloss ab, hat abgeschlossen	заключать, завершать
+achten (auf)	achtete, hat geachtet	обращать внимание (на)
+anbieten	bot an, hat angeboten	предлагать
+anerkennen	erkannte an, hat anerkannt	признавать
+sich anmelden	meldete sich an, hat sich angemeldet	регистрироваться
+annehmen	nahm an, hat angenommen	принимать; предполагать
+sich ärgern	ärgerte sich, hat sich geärgert	злиться
+aufpassen	passte auf, hat aufgepasst	быть внимательным
+ausgeben	gab aus, hat ausgegeben	тратить
+ausfallen	fiel aus, ist ausgefallen	отменяться
+sich auskennen	kannte sich aus, hat sich ausgekannt	разбираться
+ausleihen	lieh aus, hat ausgeliehen	брать/давать взаймы
+sich bedanken	bedankte sich, hat sich bedankt	благодарить
+bedeuten	bedeutete, hat bedeutet	означать
+sich befinden	befand sich, hat sich befunden	находиться
+begründen	begründete, hat begründet	обосновывать
+behalten	behielt, hat behalten	оставлять себе
+behandeln	behandelte, hat behandelt	обращаться; лечить
+behaupten	behauptete, hat behauptet	утверждать
+beitragen	trug bei, hat beigetragen	вносить вклад
+beraten	beriet, hat beraten	консультировать
+berichten	berichtete, hat berichtet	сообщать
+berücksichtigen	berücksichtigte, hat berücksichtigt	учитывать
+sich beschäftigen	beschäftigte sich, hat sich beschäftigt	заниматься
+sich beschweren	beschwerte sich, hat sich beschwert	жаловаться
+beschreiben	beschrieb, hat beschrieben	описывать
+besitzen	besaß, hat besessen	владеть
+bestätigen	bestätigte, hat bestätigt	подтверждать
+bestehen	bestand, hat bestanden	сдать (экзамен); состоять
+sich beteiligen	beteiligte sich, hat sich beteiligt	участвовать
+betreuen	betreute, hat betreut	опекать, присматривать
+beurteilen	beurteilte, hat beurteilt	оценивать
+sich bewerben	bewarb sich, hat sich beworben	подавать заявку
+bewegen	bewegte, hat bewegt	двигать
+beweisen	bewies, hat bewiesen	доказывать
+bieten	bot, hat geboten	предлагать, предоставлять
+durchführen	führte durch, hat durchgeführt	проводить, осуществлять
+sich eignen	eignete sich, hat sich geeignet	подходить, годиться
+einführen	führte ein, hat eingeführt	вводить
+einhalten	hielt ein, hat eingehalten	соблюдать
+einrichten	richtete ein, hat eingerichtet	обустраивать
+einschlafen	schlief ein, ist eingeschlafen	засыпать
+einstellen	stellte ein, hat eingestellt	нанимать; настраивать
+empfehlen	empfahl, hat empfohlen	рекомендовать
+entdecken	entdeckte, hat entdeckt	обнаруживать
+entlassen	entließ, hat entlassen	увольнять
+sich entschuldigen	entschuldigte sich, hat sich entschuldigt	извиняться
+entstehen	entstand, ist entstanden	возникать
+enttäuschen	enttäuschte, hat enttäuscht	разочаровывать
+sich entwickeln	entwickelte sich, hat sich entwickelt	развиваться
+erfahren	erfuhr, hat erfahren	узнавать
+erfinden	erfand, hat erfunden	изобретать
+erfüllen	erfüllte, hat erfüllt	выполнять
+sich erholen	erholte sich, hat sich erholt	отдыхать, восстанавливаться
+sich erinnern	erinnerte sich, hat sich erinnert	вспоминать
+sich erkälten	erkältete sich, hat sich erkältet	простужаться
+erkennen	erkannte, hat erkannt	узнавать, распознавать
+erlauben	erlaubte, hat erlaubt	разрешать
+erleben	erlebte, hat erlebt	переживать, испытывать
+erledigen	erledigte, hat erledigt	выполнять, улаживать
+ermöglichen	ermöglichte, hat ermöglicht	делать возможным
+erreichen	erreichte, hat erreicht	достигать
+erscheinen	erschien, ist erschienen	появляться; выходить
+erwarten	erwartete, hat erwartet	ожидать
+erwähnen	erwähnte, hat erwähnt	упоминать
+fehlen	fehlte, hat gefehlt	отсутствовать, не хватать
+fördern	förderte, hat gefördert	поддерживать, содействовать
+führen	führte, hat geführt	вести, руководить
+sich fürchten	fürchtete sich, hat sich gefürchtet	бояться
+gelingen	gelang, ist gelungen	удаваться
+gelten	galt, hat gegolten	действовать, считаться
+genießen	genoss, hat genossen	наслаждаться
+geschehen	geschah, ist geschehen	происходить
+sich gewöhnen (an)	gewöhnte sich, hat sich gewöhnt	привыкать (к)
+halten	hielt, hat gehalten	держать; останавливаться
+handeln	handelte, hat gehandelt	действовать; торговать
+herstellen	stellte her, hat hergestellt	производить
+hinweisen	wies hin, hat hingewiesen	указывать
+sich interessieren	interessierte sich, hat sich interessiert	интересоваться
+klingen	klang, hat geklungen	звучать
+sich konzentrieren	konzentrierte sich, hat sich konzentriert	сосредотачиваться
+kündigen	kündigte, hat gekündigt	увольняться, расторгать
+sich kümmern (um)	kümmerte sich, hat sich gekümmert	заботиться (о)
+leiden	litt, hat gelitten	страдать
+leihen	lieh, hat geliehen	одалживать
+leisten	leistete, hat geleistet	выполнять; позволить себе
+melden	meldete, hat gemeldet	сообщать
+merken	merkte, hat gemerkt	замечать
+mitteilen	teilte mit, hat mitgeteilt	сообщать
+nachdenken	dachte nach, hat nachgedacht	размышлять
+nutzen	nutzte, hat genutzt	использовать
+organisieren	organisierte, hat organisiert	организовывать
+passieren	passierte, ist passiert	случаться
+raten	riet, hat geraten	советовать; угадывать
+reagieren	reagierte, hat reagiert	реагировать
+reden	redete, hat geredet	говорить, разговаривать
+reichen	reichte, hat gereicht	хватать; передавать
+retten	rettete, hat gerettet	спасать
+schaffen	schaffte, hat geschafft	справиться, успеть
+schätzen	schätzte, hat geschätzt	ценить; оценивать
+schweigen	schwieg, hat geschwiegen	молчать
+sorgen (für)	sorgte, hat gesorgt	заботиться, обеспечивать
+sich streiten	stritt sich, hat sich gestritten	ссориться
+teilnehmen	nahm teil, hat teilgenommen	участвовать
+trennen	trennte, hat getrennt	разделять
+überlegen	überlegte, hat überlegt	обдумывать
+übernehmen	übernahm, hat übernommen	брать на себя
+überraschen	überraschte, hat überrascht	удивлять
+überzeugen	überzeugte, hat überzeugt	убеждать
+umtauschen	tauschte um, hat umgetauscht	обменивать
+unterbrechen	unterbrach, hat unterbrochen	прерывать
+sich unterhalten	unterhielt sich, hat sich unterhalten	беседовать
+unterscheiden	unterschied, hat unterschieden	различать
+unterschreiben	unterschrieb, hat unterschrieben	подписывать
+unterstützen	unterstützte, hat unterstützt	поддерживать
+untersuchen	untersuchte, hat untersucht	исследовать, обследовать
+verbessern	verbesserte, hat verbessert	улучшать
+verbieten	verbot, hat verboten	запрещать
+verbinden	verband, hat verbunden	соединять
+verbringen	verbrachte, hat verbracht	проводить (время)
+verdienen	verdiente, hat verdient	зарабатывать; заслуживать
+vereinbaren	vereinbarte, hat vereinbart	договариваться
+verhindern	verhinderte, hat verhindert	предотвращать
+verlangen	verlangte, hat verlangt	требовать
+verlassen	verließ, hat verlassen	покидать
+verletzen	verletzte, hat verletzt	ранить, нарушать
+vermeiden	vermied, hat vermieden	избегать
+vermissen	vermisste, hat vermisst	скучать (по)
+vermuten	vermutete, hat vermutet	предполагать
+veröffentlichen	veröffentlichte, hat veröffentlicht	публиковать
+verpassen	verpasste, hat verpasst	пропускать, опаздывать на
+verschieben	verschob, hat verschoben	переносить, откладывать
+versprechen	versprach, hat versprochen	обещать
+verteilen	verteilte, hat verteilt	распределять
+vertrauen	vertraute, hat vertraut	доверять
+vertreten	vertrat, hat vertreten	представлять, замещать
+verwenden	verwendete, hat verwendet	применять
+verzichten (auf)	verzichtete, hat verzichtet	отказываться (от)
+vorbereiten	bereitete vor, hat vorbereitet	готовить, подготавливать
+vorschlagen	schlug vor, hat vorgeschlagen	предлагать
+sich vorstellen	stellte sich vor, hat sich vorgestellt	представляться; представлять себе
+wachsen	wuchs, ist gewachsen	расти
+wählen	wählte, hat gewählt	выбирать
+sich wenden (an)	wandte sich, hat sich gewandt	обращаться (к)
+widersprechen	widersprach, hat widersprochen	возражать
+wirken	wirkte, hat gewirkt	действовать; казаться
+sich wundern	wunderte sich, hat sich gewundert	удивляться
+zögern	zögerte, hat gezögert	колебаться
+zunehmen	nahm zu, hat zugenommen	увеличиваться; поправляться
+abnehmen	nahm ab, hat abgenommen	уменьшаться; худеть
+zurückgeben	gab zurück, hat zurückgegeben	возвращать
+zustimmen	stimmte zu, hat zugestimmt	соглашаться
+zweifeln	zweifelte, hat gezweifelt	сомневаться
+sich beeilen	beeilte sich, hat sich beeilt	спешить
+begegnen	begegnete, ist begegnet	встречать (случайно)
+beobachten	beobachtete, hat beobachtet	наблюдать
+besprechen	besprach, hat besprochen	обсуждать
+diskutieren	diskutierte, hat diskutiert	дискутировать
+erhalten	erhielt, hat erhalten	получать
+gründen	gründete, hat gegründet	основывать
+herunterladen	lud herunter, hat heruntergeladen	скачивать
+sich lohnen	lohnte sich, hat sich gelohnt	стоить того
+sich melden	meldete sich, hat sich gemeldet	давать о себе знать
+stattfinden	fand statt, hat stattgefunden	состояться
+steigen	stieg, ist gestiegen	подниматься, расти
+sinken	sank, ist gesunken	снижаться
+stören	störte, hat gestört	мешать
+umziehen	zog um, ist umgezogen	переезжать
+vergleichen	verglich, hat verglichen	сравнивать
+verschwinden	verschwand, ist verschwunden	исчезать
+sich verabreden	verabredete sich, hat sich verabredet	договориться о встрече
+sich verabschieden	verabschiedete sich, hat sich verabschiedet	прощаться
+abhängig		зависимый
+allgemein		общий
+angenehm		приятный
+ängstlich		боязливый
+anstrengend		утомительный
+aufmerksam		внимательный
+ausgezeichnet		отличный
+ausführlich		подробный
+bekannt		известный
+bequem		удобный
+bereit		готовый
+berühmt		знаменитый
+beliebt		популярный, любимый
+bescheiden		скромный
+besonders		особенно
+deutlich		отчётливый, ясный
+dringend		срочный
+ehrlich		честный
+eigentlich		собственно, вообще-то
+einverstanden		согласный
+empfindlich		чувствительный
+enttäuscht		разочарованный
+erfolgreich		успешный
+erstaunt		изумлённый
+fremd		чужой, незнакомый
+geduldig		терпеливый
+gefährlich		опасный
+gemeinsam		совместный, общий
+genau		точный
+gerecht		справедливый
+gewöhnlich		обычный
+gleichzeitig		одновременно
+großzügig		щедрый
+gründlich		основательный
+höflich		вежливый
+kaum		едва, почти не
+kompliziert		сложный
+körperlich		физический
+kostenlos		бесплатный
+lebendig		живой
+nachhaltig		устойчивый, экологичный
+notwendig		необходимый
+offensichtlich		очевидно
+ordentlich		аккуратный
+persönlich		лично, личный
+praktisch		практичный
+pünktlich		пунктуальный
+regelmäßig		регулярный
+selbstständig		самостоятельный
+seltsam		странный
+sorgfältig		тщательный
+sparsam		экономный
+spontan		спонтанный
+streng		строгий
+überzeugt		убеждённый
+unbedingt		обязательно
+ungefähr		примерно
+unterschiedlich		различный
+verantwortlich		ответственный
+vernünftig		разумный
+verständlich		понятный
+vorsichtig		осторожный
+wahrscheinlich		вероятно
+zufrieden		довольный
+zuverlässig		надёжный
+zufällig		случайно
+sowieso		всё равно, так или иначе
+trotzdem		тем не менее
+außerdem		кроме того
+deshalb		поэтому
+inzwischen		тем временем
+allerdings		однако, правда
+jedenfalls		во всяком случае
+nämlich		а именно, ведь
+obwohl		хотя
+sobald		как только
+während		во время; пока
+damit		чтобы
+falls		в случае если

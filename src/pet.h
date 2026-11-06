@@ -23,7 +23,8 @@ void petTouch(bool down);  // finger on the screen: close-up of the happy face
 void petTap(int16_t x, int16_t y);
 void petStroke();
 void petPomodoroDone();
-void petCardLearned();
+void petCardAnswered(bool known);  // one German card: known ones feed the brain
+void petWordsDone();               // all of today's words done
 void petWake();
 void petSetFocus(bool on);  // curled up during a pomodoro
 bool petAsleep();

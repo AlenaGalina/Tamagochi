@@ -3,7 +3,9 @@
 #include <Wire.h>
 #include <driver/i2s_std.h>
 #include "es7210.h"
+#include "es8311.h"
 #include <math.h>
+#include <time.h>
 
 static TwoWire &bus = Wire;
 static uint8_t imuAddr = 0;
@@ -133,12 +135,46 @@ void rtcSetIfLost() {
   bus.endTransmission();
 }
 
-int weekday(uint32_t t) { return (t / 86400 + 5) % 7; }
-int hourOf(uint32_t t) { return (t / 3600) % 24; }
+void rtcSet(uint32_t t) {
+  int32_t days = t / 86400;
+  uint32_t rem = t % 86400;
+  // civil date from days since 2000-01-01 (inverse of daysFromCivil)
+  int32_t z = days + 730425;  // days since 0000-03-01, the era daysFromCivil counts from
+  int32_t era = z / 146097, doe = z - era * 146097;
+  int32_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+  int32_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
+  int d = doy - (153 * mp + 2) / 5 + 1, m = mp < 10 ? mp + 3 : mp - 9;
+  int y = yoe + era * 400 + (m <= 2);
+  writeReg(bus, ADDR_RTC, 0x00, 0x00);
+  bus.beginTransmission(ADDR_RTC);
+  bus.write(0x04);
+  bus.write(bin2bcd(rem % 60));
+  bus.write(bin2bcd(rem / 60 % 60));
+  bus.write(bin2bcd(rem / 3600));
+  bus.write(bin2bcd(d));
+  bus.write((days + 5) % 7);
+  bus.write(bin2bcd(m));
+  bus.write(bin2bcd(y - 2000));
+  bus.endTransmission();
+}
 
-// ---- Microphone: ES7210 over I2S ----
+static struct tm localOf(uint32_t t) {
+  time_t u = (time_t)t + UNIX_2000;
+  struct tm tm;
+  localtime_r(&u, &tm);
+  return tm;
+}
 
-static i2s_chan_handle_t rx;
+int weekday(uint32_t t) { return (localOf(t).tm_wday + 6) % 7; }
+int hourOf(uint32_t t) { return localOf(t).tm_hour; }
+int localDay(uint32_t t) {
+  struct tm tm = localOf(t);
+  return daysFromCivil(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+}
+
+// ---- Audio: ES7210 mics in, ES8311 speaker out, one shared I2S bus ----
+
+static i2s_chan_handle_t rx, tx;
 static volatile float level = -90, floorDb = -60;
 
 static void micTask(void *) {
@@ -167,37 +203,68 @@ static void micTask(void *) {
   }
 }
 
-void micBegin() {
+#define SPEAKER_AMP_PIN 15  // power amplifier enable
+#define SPEAKER_VOLUME 62   // 0-100; each step is about 1.3 dB, 75 is 0 dB
+static bool speakerOk = false;
+
+bool speakerReady() { return speakerOk; }
+
+void speakerPower(bool on) {
+  digitalWrite(SPEAKER_AMP_PIN, on ? HIGH : LOW);
+  if (on) delay(20);  // the amplifier wakes up
+}
+
+void speakerWrite(const int16_t *stereo, int frames) {
+  size_t written;
+  i2s_channel_write(tx, stereo, frames * 4, &written, portMAX_DELAY);
+}
+
+void audioBegin() {
   es7210_dev_handle_t adc = NULL;
   es7210_i2c_config_t ic = {.i2c_addr = ADDR_MIC_ADC};
   if (es7210_new_codec(&ic, &adc) != ESP_OK) return;
   es7210_codec_config_t cfg = {};
   cfg.i2s_format = ES7210_I2S_FMT_I2S;
   cfg.mclk_ratio = 256;
-  cfg.sample_rate_hz = 16000;
+  cfg.sample_rate_hz = AUDIO_RATE;
   cfg.bit_width = ES7210_I2S_BITS_16B;
   cfg.mic_bias = ES7210_MIC_BIAS_2V87;
   cfg.mic_gain = ES7210_MIC_GAIN_30DB;
   if (es7210_config_codec(adc, &cfg) != ESP_OK) return;
   es7210_config_volume(adc, 0);
 
+  es8311_handle_t dac = es8311_create(I2C_NUM_0, ADDR_SPEAKER_DAC);
+  es8311_clock_config_t clk = {};
+  clk.mclk_from_mclk_pin = true;
+  clk.mclk_frequency = AUDIO_RATE * 256;
+  clk.sample_frequency = AUDIO_RATE;
+  bool speaker = dac && es8311_init(dac, &clk, ES8311_RESOLUTION_16, ES8311_RESOLUTION_16) == ESP_OK;
+  if (speaker) {
+    es8311_voice_volume_set(dac, SPEAKER_VOLUME, NULL);
+    es8311_microphone_config(dac, false);
+  }
+  pinMode(SPEAKER_AMP_PIN, OUTPUT);
+  digitalWrite(SPEAKER_AMP_PIN, LOW);
+
   i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
-  if (i2s_new_channel(&cc, NULL, &rx) != ESP_OK) return;
+  cc.auto_clear = true;  // silence when there is nothing to play
+  if (i2s_new_channel(&cc, &tx, &rx) != ESP_OK) return;
   i2s_std_config_t sc = {
-      .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(16000),
+      .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(AUDIO_RATE),
       .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
       .gpio_cfg = {
           .mclk = (gpio_num_t)I2S_MCLK,
           .bclk = (gpio_num_t)I2S_BCLK,
           .ws = (gpio_num_t)I2S_WS,
-          .dout = I2S_GPIO_UNUSED,
+          .dout = (gpio_num_t)I2S_DOUT,
           .din = (gpio_num_t)I2S_DIN,
           .invert_flags = {false, false, false},
       },
   };
-  if (i2s_channel_init_std_mode(rx, &sc) != ESP_OK) return;
-  if (i2s_channel_enable(rx) != ESP_OK) return;
+  if (i2s_channel_init_std_mode(tx, &sc) != ESP_OK || i2s_channel_init_std_mode(rx, &sc) != ESP_OK) return;
+  if (i2s_channel_enable(tx) != ESP_OK || i2s_channel_enable(rx) != ESP_OK) return;
   xTaskCreatePinnedToCore(micTask, "mic", 4096, NULL, 1, NULL, 0);
+  speakerOk = speaker;
 }
 
 float micLevel() { return level; }
